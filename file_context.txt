@@ -9,7 +9,7 @@ short lines.
 max one idea per line.
 choppy sentences.
 bad grammar on purpose.
-lowercase mostly.
+full lower/upper case mostly.
 punctuation messy.
 misspellings ok.
 rarely use conjunctions.
