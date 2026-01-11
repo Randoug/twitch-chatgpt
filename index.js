@@ -40,8 +40,8 @@ const RANDOM_TALK_ENABLED = isTruthy(process.env.RANDOM_TALK_ENABLED ?? 'true');
 const RANDOM_TALK_CHANCE = Number.parseFloat(process.env.RANDOM_TALK_CHANCE ?? '0.03'); // chance per incoming message
 const RANDOM_TALK_IGNORE_COMMAND_PREFIX = process.env.RANDOM_TALK_IGNORE_COMMAND_PREFIX ?? '!'; // ignore messages starting with this (e.g., commands)
 const RANDOM_TALK_MIN_MESSAGE_LENGTH = Number.parseInt(process.env.RANDOM_TALK_MIN_MESSAGE_LENGTH ?? '2', 10); // ignore very short messages
-const RANDOM_TALK_DEBUG = isTruthy(process.env.RANDOM_TALK_DEBUG ?? 'false'); // log decisions to console
-const RANDOM_TALK_IGNORE_COOLDOWN = isTruthy(process.env.RANDOM_TALK_IGNORE_COOLDOWN ?? 'false'); // for testing
+const RANDOM_TALK_DEBUG = isTruthy(process.env.RANDOM_TALK_DEBUG ?? 'true'); // log decisions to console
+const RANDOM_TALK_IGNORE_COOLDOWN = isTruthy(process.env.RANDOM_TALK_IGNORE_COOLDOWN ?? 'true'); // for testing
 
 
 
