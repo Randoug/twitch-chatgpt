@@ -32,7 +32,7 @@ const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS || 'false';
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 10; // Cooldown duration in seconds
 
 const RANDOM_TALK_ENABLED = process.env.RANDOM_TALK_ENABLED || 'true';
-const RANDOM_TALK_CHANCE = parseFloat(process.env.RANDOM_TALK_CHANCE) || 0.03; // 3% default chance per incoming message
+const RANDOM_TALK_CHANCE = parseFloat(process.env.RANDOM_TALK_CHANCE) || 0.50; // 3% default chance per incoming message
 const RANDOM_TALK_IGNORE_COMMAND_PREFIX = process.env.RANDOM_TALK_IGNORE_COMMAND_PREFIX || '!'; // ignore messages starting with this (e.g., commands)
 const RANDOM_TALK_MIN_MESSAGE_LENGTH = parseInt(process.env.RANDOM_TALK_MIN_MESSAGE_LENGTH, 10) || 2; // ignore very short messages
 
