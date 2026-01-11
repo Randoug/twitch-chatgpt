@@ -31,6 +31,12 @@ const ENABLE_TTS = process.env.ENABLE_TTS || 'false';
 const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS || 'false';
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 10; // Cooldown duration in seconds
 
+const RANDOM_TALK_ENABLED = process.env.RANDOM_TALK_ENABLED || 'true';
+const RANDOM_TALK_CHANCE = parseFloat(process.env.RANDOM_TALK_CHANCE) || 0.03; // 3% default chance per incoming message
+const RANDOM_TALK_IGNORE_COMMAND_PREFIX = process.env.RANDOM_TALK_IGNORE_COMMAND_PREFIX || '!'; // ignore messages starting with this (e.g., commands)
+const RANDOM_TALK_MIN_MESSAGE_LENGTH = parseInt(process.env.RANDOM_TALK_MIN_MESSAGE_LENGTH, 10) || 2; // ignore very short messages
+
+
 if (!OPENAI_API_KEY) {
     console.error('No OPENAI_API_KEY found. Please set it as an environment variable.');
 }
@@ -78,25 +84,63 @@ bot.onMessage(async (channel, user, message, self) => {
 
     const currentTime = Date.now();
     const elapsedTime = (currentTime - lastResponseTime) / 1000; // Time in seconds
+    const withinCooldown = elapsedTime < COOLDOWN_DURATION;
 
+    const sendResponse = async (responseText) => {
+        if (!responseText) return;
+
+        if (responseText.length > maxLength) {
+            const parts = responseText.match(new RegExp(`.{1,${maxLength}}`, 'g'));
+            parts.forEach((msg, index) => {
+                setTimeout(() => {
+                    bot.say(channel, msg);
+                }, 1000 * index);
+            });
+        } else {
+            bot.say(channel, responseText);
+        }
+
+        if (ENABLE_TTS === 'true') {
+            try {
+                const userstateForTTS = user?.userstate ?? user;
+                const ttsAudioUrl = await bot.sayTTS(channel, responseText, userstateForTTS);
+                notifyFileChange(ttsAudioUrl);
+            } catch (error) {
+                console.error('TTS Error:', error);
+            }
+        }
+    };
+
+    // Channel points highlight messages (if enabled)
     if (ENABLE_CHANNEL_POINTS === 'true' && user['msg-id'] === 'highlighted-message') {
         console.log(`Highlighted message: ${message}`);
-        if (elapsedTime < COOLDOWN_DURATION) {
-            bot.say(channel, `Cooldown active. Please wait ${COOLDOWN_DURATION - elapsedTime.toFixed(1)} seconds before sending another message.`);
+
+        if (withinCooldown) {
+            bot.say(
+                channel,
+                `Cooldown active. Please wait ${(COOLDOWN_DURATION - elapsedTime).toFixed(1)} seconds before sending another message.`
+            );
             return;
         }
+
         lastResponseTime = currentTime; // Update the last response time
 
         const response = await openaiOps.make_openai_call(message);
-        bot.say(channel, response);
+        await sendResponse(response);
+        return; // Prevent responding twice
     }
 
+    // Commands (explicit trigger)
     const command = commandNames.find(cmd => message.toLowerCase().startsWith(cmd));
     if (command) {
-        if (elapsedTime < COOLDOWN_DURATION) {
-            bot.say(channel, `Cooldown active. Please wait ${COOLDOWN_DURATION - elapsedTime.toFixed(1)} seconds before sending another message.`);
+        if (withinCooldown) {
+            bot.say(
+                channel,
+                `Cooldown active. Please wait ${(COOLDOWN_DURATION - elapsedTime).toFixed(1)} seconds before sending another message.`
+            );
             return;
         }
+
         lastResponseTime = currentTime; // Update the last response time
 
         let text = message.slice(command.length).trim();
@@ -105,26 +149,33 @@ bot.onMessage(async (channel, user, message, self) => {
         }
 
         const response = await openaiOps.make_openai_call(text);
-        if (response.length > maxLength) {
-            const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g'));
-            messages.forEach((msg, index) => {
-                setTimeout(() => {
-                    bot.say(channel, msg);
-                }, 1000 * index);
-            });
-        } else {
-            bot.say(channel, response);
-        }
+        await sendResponse(response);
+        return; // Prevent responding twice
+    }
 
-        if (ENABLE_TTS === 'true') {
-            try {
-                const ttsAudioUrl = await bot.sayTTS(channel, response, user['userstate']);
-                notifyFileChange(ttsAudioUrl);
-            } catch (error) {
-                console.error('TTS Error:', error);
+    // Random talk (Discord-style: 3% default chance per incoming message)
+    if (RANDOM_TALK_ENABLED === 'true') {
+        const normalizedMessage = (message || '').trim();
+
+        const shouldSkipRandom =
+            !normalizedMessage ||
+            normalizedMessage.length < RANDOM_TALK_MIN_MESSAGE_LENGTH ||
+            (RANDOM_TALK_IGNORE_COMMAND_PREFIX && normalizedMessage.startsWith(RANDOM_TALK_IGNORE_COMMAND_PREFIX));
+
+        if (!shouldSkipRandom && !withinCooldown && Math.random() < RANDOM_TALK_CHANCE) {
+            lastResponseTime = currentTime; // Update the last response time
+
+            let text = normalizedMessage;
+            if (SEND_USERNAME === 'true') {
+                text = `Message from user ${user.username}: ${text}`;
             }
+
+            const response = await openaiOps.make_openai_call(text);
+            await sendResponse(response);
+            return; // Prevent responding twice
         }
     }
+
 });
 
 app.ws('/check-for-updates', (ws, req) => {
@@ -193,10 +244,10 @@ wss.on('connection', ws => {
     });
 });
 
-function notifyFileChange() {
+function notifyFileChange(audioUrl) {
     wss.clients.forEach(client => {
         if (client.readyState === ws.OPEN) {
-            client.send(JSON.stringify({updated: true}));
+            client.send(JSON.stringify({updated: true, audioUrl}));
         }
     });
 }
