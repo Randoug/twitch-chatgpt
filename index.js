@@ -31,10 +31,18 @@ const ENABLE_TTS = process.env.ENABLE_TTS || 'false';
 const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS || 'false';
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 10; // Cooldown duration in seconds
 
-const RANDOM_TALK_ENABLED = process.env.RANDOM_TALK_ENABLED || 'true';
-const RANDOM_TALK_CHANCE = parseFloat(process.env.RANDOM_TALK_CHANCE) || 0.50; // 3% default chance per incoming message
-const RANDOM_TALK_IGNORE_COMMAND_PREFIX = process.env.RANDOM_TALK_IGNORE_COMMAND_PREFIX || '!'; // ignore messages starting with this (e.g., commands)
-const RANDOM_TALK_MIN_MESSAGE_LENGTH = parseInt(process.env.RANDOM_TALK_MIN_MESSAGE_LENGTH, 10) || 2; // ignore very short messages
+// Helper: accept common truthy strings from env vars (Render users often use TRUE/1/yes)
+const isTruthy = (v) => ['true','1','yes','y','on'].includes(String(v ?? '').trim().toLowerCase());
+
+
+
+const RANDOM_TALK_ENABLED = isTruthy(process.env.RANDOM_TALK_ENABLED ?? 'true');
+const RANDOM_TALK_CHANCE = Number.parseFloat(process.env.RANDOM_TALK_CHANCE ?? '0.03'); // chance per incoming message
+const RANDOM_TALK_IGNORE_COMMAND_PREFIX = process.env.RANDOM_TALK_IGNORE_COMMAND_PREFIX ?? '!'; // ignore messages starting with this (e.g., commands)
+const RANDOM_TALK_MIN_MESSAGE_LENGTH = Number.parseInt(process.env.RANDOM_TALK_MIN_MESSAGE_LENGTH ?? '2', 10); // ignore very short messages
+const RANDOM_TALK_DEBUG = isTruthy(process.env.RANDOM_TALK_DEBUG ?? 'false'); // log decisions to console
+const RANDOM_TALK_IGNORE_COOLDOWN = isTruthy(process.env.RANDOM_TALK_IGNORE_COOLDOWN ?? 'false'); // for testing
+
 
 
 if (!OPENAI_API_KEY) {
@@ -123,7 +131,8 @@ bot.onMessage(async (channel, user, message, self) => {
             return;
         }
 
-        lastResponseTime = currentTime; // Update the last response time
+        if (RANDOM_TALK_DEBUG) console.log('[RANDOM_TALK] TRIGGERED');
+            lastResponseTime = currentTime; // Update the last response time
 
         const response = await openaiOps.make_openai_call(message);
         await sendResponse(response);
@@ -154,7 +163,7 @@ bot.onMessage(async (channel, user, message, self) => {
     }
 
     // Random talk (Discord-style: 3% default chance per incoming message)
-    if (RANDOM_TALK_ENABLED === 'true') {
+    if (RANDOM_TALK_ENABLED) {
         const normalizedMessage = (message || '').trim();
 
         const shouldSkipRandom =
@@ -162,7 +171,12 @@ bot.onMessage(async (channel, user, message, self) => {
             normalizedMessage.length < RANDOM_TALK_MIN_MESSAGE_LENGTH ||
             (RANDOM_TALK_IGNORE_COMMAND_PREFIX && normalizedMessage.startsWith(RANDOM_TALK_IGNORE_COMMAND_PREFIX));
 
-        if (!shouldSkipRandom && !withinCooldown && Math.random() < RANDOM_TALK_CHANCE) {
+        const roll = Math.random();
+        if (RANDOM_TALK_DEBUG) {
+            console.log(`[RANDOM_TALK] msg="${normalizedMessage}" skip=${shouldSkipRandom} cooldown=${withinCooldown} chance=${RANDOM_TALK_CHANCE} roll=${roll}`);
+        }
+
+        if (!shouldSkipRandom && (!withinCooldown || RANDOM_TALK_IGNORE_COOLDOWN) && roll < RANDOM_TALK_CHANCE) {
             lastResponseTime = currentTime; // Update the last response time
 
             let text = normalizedMessage;
