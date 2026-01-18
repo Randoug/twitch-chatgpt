@@ -126,7 +126,7 @@ bot.onMessage(async (channel, user, message, self) => {
         if (withinCooldown) {
             bot.say(
                 channel,
-                `Cooldown active. Please wait ${(COOLDOWN_DURATION - elapsedTime).toFixed(1)} seconds before sending another message.`
+                `TOO MUCH TALK. TOO FAST!!! SMOL BRAIN NEED ${(COOLDOWN_DURATION - elapsedTime).toFixed(1)} SECONDS TO THINK.`
             );
             return;
         }
